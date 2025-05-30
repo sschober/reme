@@ -25,22 +25,19 @@ impl List {
 }
 impl fmt::Display for List {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            List::Empty() => write!(f, "()"),
-            _ => {
-                _ = write!(f, "(");
-                _ = self.internal_fmt(f);
-                write!(f, ")")
-            }
-        }
+        _ = write!(f, "(");
+        _ = self.internal_fmt(f);
+        write!(f, ")")
     }
 }
+
 pub fn lit(s: &str) -> List {
     List::Lit(s.to_owned())
 }
 
 #[macro_export]
 macro_rules! list {
+    () => { list() };
     ($value:expr) => {
         // TODO we might drop the lit as the caller should decide, what we want to add
         cons(lit($value), list())
@@ -115,6 +112,12 @@ mod tests {
     fn cons_2_displays_correctly() {
         let l = cons(lit("2"), cons(lit("1"), list()));
         assert_eq!("('2' '1')", format!("{}", l));
+    }
+
+    #[test]
+    fn list_marcro_works_for_empty() {
+        let l = list!();
+        assert_eq!("()", format!("{}", l));
     }
 
     #[test]
