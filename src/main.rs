@@ -131,7 +131,7 @@ mod tests {
     #[test]
     fn empty_list_displays_correctly() {
         let l = list();
-        assert_eq!("()", format!("{}", l));
+        assert_eq!("()", format!("{l}"));
     }
     #[test]
     fn cons_1_to_empty_list() {
@@ -141,7 +141,7 @@ mod tests {
     #[test]
     fn cons_1_displays_correctly() {
         let l = cons(lit("1"), list());
-        assert_eq!("('1')", format!("{}", l));
+        assert_eq!("('1')", format!("{l}"));
     }
     #[test]
     fn cons_2_to_list_of_1_has_size_2() {
@@ -151,27 +151,27 @@ mod tests {
     #[test]
     fn cons_2_displays_correctly() {
         let l = cons(lit("2"), cons(lit("1"), list()));
-        assert_eq!("('2' '1')", format!("{}", l));
+        assert_eq!("('2' '1')", format!("{l}"));
     }
 
     #[test]
     fn list_marcro_works_for_empty() {
         let l = list!();
-        assert_eq!("()", format!("{}", l));
+        assert_eq!("()", format!("{l}"));
     }
 
     #[test]
     fn list_marcro_works_for_1() {
         let l = list!("1");
-        assert_eq!("('1')", format!("{}", l));
+        assert_eq!("('1')", format!("{l}"));
     }
 
     #[test]
     fn list_marcro_works_for_2() {
         let l = list!("1", "2");
-        eprintln!("{}", l);
-        eprintln!("{:?}", l);
-        assert_eq!("('1' '2')", format!("{}", l));
+        eprintln!("{l}");
+        eprintln!("{l:?}");
+        assert_eq!("('1' '2')", format!("{l}"));
     }
 
     #[test]
@@ -179,9 +179,9 @@ mod tests {
         let l = list();
         let n = list!("1");
         let a = append(Rc::new(l), Rc::new(n));
-        eprintln!("a: {}", a);
-        eprintln!("a: {:?}", a);
-        assert_eq!("('1')", format!("{}", a))
+        eprintln!("a: {a}");
+        eprintln!("a: {a:?}");
+        assert_eq!("('1')", format!("{a}"))
     }
 
     #[test]
@@ -190,9 +190,9 @@ mod tests {
         let n = list_rc!("2");
         let a = append(Rc::clone(&l), n);
 
-        eprintln!("a: {}", a);
-        eprintln!("a: {:?}", a);
-        assert_eq!("('1' '2')", format!("{}", a));
+        eprintln!("a: {a}");
+        eprintln!("a: {a:?}");
+        assert_eq!("('1' '2')", format!("{a}"));
         // the * is necessary as car_rc returns an Rc
         // car_rc is necessary as a itself is an Rc
         assert_eq!(lit("1"), *car_rc(a));
@@ -202,7 +202,7 @@ mod tests {
     fn real_worldy_list() {
         let l = list!("this", "is", "a", "list");
 
-        eprintln!("l: {}", l);
-        eprintln!("l: {:?}", l);
+        eprintln!("l: {l}");
+        eprintln!("l: {l:?}");
     }
 }
