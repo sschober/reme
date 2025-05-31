@@ -1,6 +1,18 @@
 //! reme is my interpretation of a `rust scheme`
+//!
+//! this implementation is an exploration of how you would implement a scheme like language in rust
+//! using only an enum and helper functions and macros.
+//!
+//! this little project was inspired and motivated by [mato](github.com/sschober/mato) - my
+//! markdown transformer framework. the syntax trees the parser produces are very strangely formed
+//! and hard to read. that's why i wanted to explorer a more academical approach.
+//!
 use std::{fmt, rc::Rc};
 
+/// the List enum is the base type of our little language.
+/// its `Pair` variant serves to form trees (and in consequence and by convention) list.
+/// the `Empty` variant terminates a list and `Lit`s capture values. here, we could have a bit more
+/// power (Numbers)
 #[derive(Debug, Clone, PartialEq)]
 pub enum List {
     Empty(),
