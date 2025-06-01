@@ -46,26 +46,8 @@ impl fmt::Display for List {
 pub fn lit(s: &str) -> List {
     List::Lit(s.to_owned())
 }
-
-#[macro_export]
-macro_rules! list_rc {
-    () => { Rc::new(list()) };
-    ($value:expr) => {
-        cons_rc($value, Rc::new(list()))
-    };
-    ($head:expr, $($tail:expr),*) => {
-        cons_rc(Rc::new($head), list_rc!($($tail),*))
-    };
-}
-#[macro_export]
-macro_rules! lit_list_rc {
-    () => { Rc::new(list()) };
-    ($value:expr) => {
-        cons_rc(Rc::new(lit($value)), Rc::new(list()))
-    };
-    ($head:expr, $($tail:expr),*) => {
-        cons_rc(Rc::new(lit($head)), lit_list_rc!($($tail),*))
-    };
+pub fn lit_rc(s: &str) -> Rc<List> {
+    Rc::new(lit(s))
 }
 /// cons prepends a new element to a list
 pub fn cons(a: List, b: List) -> List {
@@ -107,11 +89,11 @@ pub fn cdr(l: &List) -> &List {
         _ => &List::Empty(),
     }
 }
-pub fn list() -> List {
+pub fn empty_list() -> List {
     List::Empty()
 }
-pub fn list_rc() -> Rc<List> {
-    Rc::new(list())
+pub fn empty_list_rc() -> Rc<List> {
+    Rc::new(empty_list())
 }
 pub fn length(l: &List) -> usize {
     match l {
@@ -119,11 +101,32 @@ pub fn length(l: &List) -> usize {
         _ => 1 + length(cdr(l)),
     }
 }
+#[macro_export]
+macro_rules! list_rc {
+    () => { empty_list_rc() };
+    ($value:expr) => {
+        cons_rc($value, empty_list_rc())
+    };
+    ($head:expr, $($tail:expr),*) => {
+        cons_rc(Rc::new($head), list_rc!($($tail),*))
+    };
+}
+#[macro_export]
+macro_rules! lit_list_rc {
+    () => { empty_list_rc() };
+    ($value:expr) => {
+        list_rc!(lit_rc($value))
+    };
+    ($head:expr, $($tail:expr),*) => {
+        cons_rc(lit_rc($head), lit_list_rc!($($tail),*))
+    };
+}
 /// append appends list b to list a
 pub fn append(a: Rc<List>, b: Rc<List>) -> Rc<List> {
-    match *a {
-        List::Empty() => b,
-        _ => cons_rc(car_rc(Rc::clone(&a)), append(cdr_rc(a), b)),
+    if is_empty_rc(Rc::clone(&a)) {
+        b
+    } else {
+        cons_rc(car_rc(Rc::clone(&a)), append(cdr_rc(a), b))
     }
 }
 
@@ -146,38 +149,38 @@ fn main() {
 mod tests {
     use std::rc::Rc;
 
-    use crate::{append, car_rc, cdr_rc, length, lit, reverse};
+    use crate::{append, car_rc, cdr_rc, length, lit, lit_rc, reverse};
 
-    use super::{cons, cons_rc, list};
+    use super::{cons, cons_rc, empty_list, empty_list_rc};
 
     #[test]
     fn empty_list_is_size_0() {
-        let l = list();
+        let l = empty_list();
         assert_eq!(0, length(&l));
     }
     #[test]
     fn empty_list_displays_correctly() {
-        let l = list();
+        let l = empty_list();
         assert_eq!("()", format!("{l}"));
     }
     #[test]
     fn cons_1_to_empty_list() {
-        let l = cons(lit("1"), list());
+        let l = cons(lit("1"), empty_list());
         assert_eq!(1, length(&l))
     }
     #[test]
     fn cons_1_displays_correctly() {
-        let l = cons(lit("1"), list());
+        let l = cons(lit("1"), empty_list());
         assert_eq!("('1')", format!("{l}"));
     }
     #[test]
     fn cons_2_to_list_of_1_has_size_2() {
-        let l = cons(lit("2"), cons(lit("1"), list()));
+        let l = cons(lit("2"), cons(lit("1"), empty_list()));
         assert_eq!(2, length(&l))
     }
     #[test]
     fn cons_2_displays_correctly() {
-        let l = cons(lit("2"), cons(lit("1"), list()));
+        let l = cons(lit("2"), cons(lit("1"), empty_list()));
         assert_eq!("('2' '1')", format!("{l}"));
     }
 
@@ -203,7 +206,7 @@ mod tests {
 
     #[test]
     fn append_1_to_empty() {
-        let l = list();
+        let l = empty_list();
         let n = lit_list_rc!("1");
         let a = append(Rc::new(l), n);
         eprintln!("a: {a}");
