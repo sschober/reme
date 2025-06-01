@@ -78,15 +78,11 @@ pub fn cons(a: List, b: List) -> List {
 pub fn cons_rc(a: Rc<List>, b: Rc<List>) -> Rc<List> {
     Rc::new(List::Pair(a, b))
 }
-/// append appends list b to list a
-pub fn append(a: Rc<List>, b: Rc<List>) -> Rc<List> {
-    match *a {
-        List::Empty() => b,
-        _ => cons_rc(car_rc(Rc::clone(&a)), append(cdr_rc(a), b)),
-    }
-}
 pub fn is_pair(l: List) -> bool {
     matches!(l, List::Pair(_, _))
+}
+pub fn is_empty_rc(l: Rc<List>) -> bool {
+    matches!(*l, List::Empty())
 }
 pub fn car_rc(l: Rc<List>) -> Rc<List> {
     // I find this construction, taking a ref of a dereferenced Rc especially ugly.
@@ -124,14 +120,38 @@ pub fn length(l: &List) -> usize {
         _ => 1 + length(cdr(l)),
     }
 }
+/// append appends list b to list a
+pub fn append(a: Rc<List>, b: Rc<List>) -> Rc<List> {
+    match *a {
+        List::Empty() => b,
+        _ => cons_rc(car_rc(Rc::clone(&a)), append(cdr_rc(a), b)),
+    }
+}
+
+pub fn reverse(a: Rc<List>) -> Rc<List> {
+    eprintln!("a: {a:?}");
+    if is_empty_rc(Rc::clone(&a)) {
+        return a;
+    }
+    let h = cdr_rc(Rc::clone(&a));
+    eprintln!("h: {h:?}");
+    let t = car_rc(Rc::clone(&a));
+    eprintln!("t: {t:?}");
+    let r = reverse(h);
+    eprintln!("r: {r:?}");
+    eprintln!("append({r},{t})");
+    append(r, cons_rc(t, Rc::new(list())))
+}
+
 fn main() {
     println!("Hello, world!");
 }
+
 #[cfg(test)]
 mod tests {
     use std::rc::Rc;
 
-    use crate::{append, car_rc, length, lit};
+    use crate::{append, car_rc, cdr_rc, length, lit, reverse};
 
     use super::{cons, cons_rc, list};
 
@@ -216,5 +236,35 @@ mod tests {
 
         eprintln!("l: {l}");
         eprintln!("l: {l:?}");
+        assert_eq!("('this' 'is' 'a' 'list')", format!("{l}"))
+    }
+
+    #[test]
+    fn car_returns_first_element() {
+        let l = list_rc!("1");
+        let c = car_rc(l);
+        eprintln!("c: {c}");
+        eprintln!("c: {c:?}");
+        assert_eq!("('1')", format!("{c}"))
+    }
+    #[test]
+    fn cdr_return_rest_of_list() {
+        let l = list_rc!("1", "2", "3");
+        eprintln!("l: {l}");
+        eprintln!("l: {l:?}");
+        let c = cdr_rc(l);
+        eprintln!("c: {c}");
+        eprintln!("c: {c:?}");
+        assert_eq!("('2' '3')", format!("{c}"))
+    }
+    #[test]
+    fn reverse_reverts_a_lists_order() {
+        let l = list_rc!("1", "2", "3");
+        eprintln!("l: {l}");
+        eprintln!("l: {l:?}");
+        let c = reverse(l);
+        eprintln!("c: {c}");
+        eprintln!("c: {c:?}");
+        assert_eq!("('3' '2' '1')", format!("{c}"))
     }
 }
