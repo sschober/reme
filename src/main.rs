@@ -48,27 +48,23 @@ pub fn lit(s: &str) -> List {
 }
 
 #[macro_export]
-macro_rules! list {
-    () => { list() };
+macro_rules! list_rc {
+    () => { Rc::new(list()) };
     ($value:expr) => {
-        // TODO we might drop the lit as the caller should decide, what we want to add
-        cons(lit($value), list())
+        cons_rc($value, Rc::new(list()))
     };
     ($head:expr, $($tail:expr),*) => {
-        // TODO we might drop the lit as the caller should decide, what we want to add
-        cons(lit($head), list!($($tail),*))
+        cons_rc(Rc::new($head), list_rc!($($tail),*))
     };
 }
 #[macro_export]
-macro_rules! list_rc {
-    () => { list() };
+macro_rules! lit_list_rc {
+    () => { Rc::new(list()) };
     ($value:expr) => {
-        // TODO we might drop the lit as the caller should decide, what we want to add
         cons_rc(Rc::new(lit($value)), Rc::new(list()))
     };
     ($head:expr, $($tail:expr),*) => {
-        // TODO we might drop the lit as the caller should decide, what we want to add
-        cons_rc(Rc::new(lit($head)), list_rc!($($tail),*))
+        cons_rc(Rc::new(lit($head)), lit_list_rc!($($tail),*))
     };
 }
 /// cons prepends a new element to a list
@@ -114,6 +110,9 @@ pub fn cdr(l: &List) -> &List {
 pub fn list() -> List {
     List::Empty()
 }
+pub fn list_rc() -> Rc<List> {
+    Rc::new(list())
+}
 pub fn length(l: &List) -> usize {
     match l {
         List::Empty() => 0,
@@ -129,18 +128,14 @@ pub fn append(a: Rc<List>, b: Rc<List>) -> Rc<List> {
 }
 
 pub fn reverse(a: Rc<List>) -> Rc<List> {
-    eprintln!("a: {a:?}");
     if is_empty_rc(Rc::clone(&a)) {
-        return a;
+        a
+    } else {
+        append(
+            reverse(cdr_rc(Rc::clone(&a))),
+            list_rc!(car_rc(Rc::clone(&a))),
+        )
     }
-    let h = cdr_rc(Rc::clone(&a));
-    eprintln!("h: {h:?}");
-    let t = car_rc(Rc::clone(&a));
-    eprintln!("t: {t:?}");
-    let r = reverse(h);
-    eprintln!("r: {r:?}");
-    eprintln!("append({r},{t})");
-    append(r, cons_rc(t, Rc::new(list())))
 }
 
 fn main() {
@@ -188,19 +183,19 @@ mod tests {
 
     #[test]
     fn list_marcro_works_for_empty() {
-        let l = list!();
+        let l = lit_list_rc!();
         assert_eq!("()", format!("{l}"));
     }
 
     #[test]
     fn list_marcro_works_for_1() {
-        let l = list!("1");
+        let l = lit_list_rc!("1");
         assert_eq!("('1')", format!("{l}"));
     }
 
     #[test]
     fn list_marcro_works_for_2() {
-        let l = list!("1", "2");
+        let l = lit_list_rc!("1", "2");
         eprintln!("{l}");
         eprintln!("{l:?}");
         assert_eq!("('1' '2')", format!("{l}"));
@@ -209,8 +204,8 @@ mod tests {
     #[test]
     fn append_1_to_empty() {
         let l = list();
-        let n = list!("1");
-        let a = append(Rc::new(l), Rc::new(n));
+        let n = lit_list_rc!("1");
+        let a = append(Rc::new(l), n);
         eprintln!("a: {a}");
         eprintln!("a: {a:?}");
         assert_eq!("('1')", format!("{a}"))
@@ -218,8 +213,8 @@ mod tests {
 
     #[test]
     fn append_2_to_1() {
-        let l = list_rc!("1");
-        let n = list_rc!("2");
+        let l = lit_list_rc!("1");
+        let n = lit_list_rc!("2");
         let a = append(Rc::clone(&l), n);
 
         eprintln!("a: {a}");
@@ -232,7 +227,7 @@ mod tests {
 
     #[test]
     fn real_worldy_list() {
-        let l = list!("this", "is", "a", "list");
+        let l = lit_list_rc!("this", "is", "a", "list");
 
         eprintln!("l: {l}");
         eprintln!("l: {l:?}");
@@ -241,7 +236,7 @@ mod tests {
 
     #[test]
     fn car_returns_first_element() {
-        let l = list_rc!("1");
+        let l = lit_list_rc!("1");
         let c = car_rc(l);
         eprintln!("c: {c}");
         eprintln!("c: {c:?}");
@@ -249,7 +244,7 @@ mod tests {
     }
     #[test]
     fn cdr_return_rest_of_list() {
-        let l = list_rc!("1", "2", "3");
+        let l = lit_list_rc!("1", "2", "3");
         eprintln!("l: {l}");
         eprintln!("l: {l:?}");
         let c = cdr_rc(l);
@@ -259,7 +254,7 @@ mod tests {
     }
     #[test]
     fn reverse_reverts_a_lists_order() {
-        let l = list_rc!("1", "2", "3");
+        let l = lit_list_rc!("1", "2", "3");
         eprintln!("l: {l}");
         eprintln!("l: {l:?}");
         let c = reverse(l);
