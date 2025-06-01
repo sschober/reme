@@ -129,7 +129,7 @@ pub fn append(a: Rc<List>, b: Rc<List>) -> Rc<List> {
         cons_rc(car_rc(Rc::clone(&a)), append(cdr_rc(a), b))
     }
 }
-
+/// reverses the given input list and returns a new list
 pub fn reverse(a: Rc<List>) -> Rc<List> {
     if is_empty_rc(Rc::clone(&a)) {
         a
@@ -199,8 +199,6 @@ mod tests {
     #[test]
     fn list_marcro_works_for_2() {
         let l = lit_list_rc!("1", "2");
-        eprintln!("{l}");
-        eprintln!("{l:?}");
         assert_eq!("('1' '2')", format!("{l}"));
     }
 
@@ -209,8 +207,6 @@ mod tests {
         let l = empty_list();
         let n = lit_list_rc!("1");
         let a = append(Rc::new(l), n);
-        eprintln!("a: {a}");
-        eprintln!("a: {a:?}");
         assert_eq!("('1')", format!("{a}"))
     }
 
@@ -219,9 +215,6 @@ mod tests {
         let l = lit_list_rc!("1");
         let n = lit_list_rc!("2");
         let a = append(Rc::clone(&l), n);
-
-        eprintln!("a: {a}");
-        eprintln!("a: {a:?}");
         assert_eq!("('1' '2')", format!("{a}"));
         // the * is necessary as car_rc returns an Rc
         // car_rc is necessary as a itself is an Rc
@@ -231,9 +224,6 @@ mod tests {
     #[test]
     fn real_worldy_list() {
         let l = lit_list_rc!("this", "is", "a", "list");
-
-        eprintln!("l: {l}");
-        eprintln!("l: {l:?}");
         assert_eq!("('this' 'is' 'a' 'list')", format!("{l}"))
     }
 
@@ -241,28 +231,18 @@ mod tests {
     fn car_returns_first_element() {
         let l = lit_list_rc!("1");
         let c = car_rc(l);
-        eprintln!("c: {c}");
-        eprintln!("c: {c:?}");
         assert_eq!("('1')", format!("{c}"))
     }
     #[test]
     fn cdr_return_rest_of_list() {
         let l = lit_list_rc!("1", "2", "3");
-        eprintln!("l: {l}");
-        eprintln!("l: {l:?}");
         let c = cdr_rc(l);
-        eprintln!("c: {c}");
-        eprintln!("c: {c:?}");
         assert_eq!("('2' '3')", format!("{c}"))
     }
     #[test]
     fn reverse_reverts_a_lists_order() {
         let l = lit_list_rc!("1", "2", "3");
-        eprintln!("l: {l}");
-        eprintln!("l: {l:?}");
         let c = reverse(l);
-        eprintln!("c: {c}");
-        eprintln!("c: {c:?}");
         assert_eq!("('3' '2' '1')", format!("{c}"))
     }
 }
