@@ -14,20 +14,23 @@ use std::{fmt, rc::Rc};
 /// the `Empty` variant terminates a list and `Lit`s capture values. here, we could have a bit more
 /// power (Numbers)
 #[derive(Debug, Clone, PartialEq)]
-pub enum List {
+pub enum ListE {
     Empty(),
     Lit(String),
-    Pair(Rc<List>, Rc<List>),
+    Pair(List, List),
 }
-impl List {
+/// List is an alias for a reference counted ListE reference
+type List = Rc<ListE>;
+
+impl ListE {
     fn internal_fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            List::Empty() => write!(f, ""),
-            List::Lit(s) => write!(f, "'{}'", s),
-            List::Pair(h, t) => {
+            ListE::Empty() => write!(f, ""),
+            ListE::Lit(s) => write!(f, "'{}'", s),
+            ListE::Pair(h, t) => {
                 (*h).internal_fmt(f)?;
                 match **t {
-                    List::Empty() => write!(f, "")?,
+                    ListE::Empty() => write!(f, "")?,
                     _ => write!(f, " ")?,
                 };
                 (*t).internal_fmt(f)
@@ -35,7 +38,7 @@ impl List {
         }
     }
 }
-impl fmt::Display for List {
+impl fmt::Display for ListE {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "(")?;
         self.internal_fmt(f)?;
@@ -44,100 +47,76 @@ impl fmt::Display for List {
 }
 
 pub fn lit(s: &str) -> List {
-    List::Lit(s.to_owned())
-}
-pub fn lit_rc(s: &str) -> Rc<List> {
-    Rc::new(lit(s))
+    Rc::new(ListE::Lit(s.to_owned()))
 }
 /// cons prepends a new element to a list
 pub fn cons(a: List, b: List) -> List {
-    List::Pair(Rc::new(a), Rc::new(b))
+    Rc::new(ListE::Pair(a, b))
 }
-pub fn cons_rc(a: Rc<List>, b: Rc<List>) -> Rc<List> {
-    Rc::new(List::Pair(a, b))
+pub fn is_pair(l: ListE) -> bool {
+    matches!(l, ListE::Pair(_, _))
 }
-pub fn is_pair(l: List) -> bool {
-    matches!(l, List::Pair(_, _))
+pub fn is_empty(l: List) -> bool {
+    matches!(*l, ListE::Empty())
 }
-pub fn is_empty_rc(l: Rc<List>) -> bool {
-    matches!(*l, List::Empty())
-}
-pub fn car_rc(l: Rc<List>) -> Rc<List> {
+pub fn car(l: List) -> List {
     // I find this construction, taking a ref of a dereferenced Rc especially ugly.
     // I only found this after googling around. If we do not use this contraption,
     // the compiler complains, that h is moved out of l.
     match &*l {
-        List::Pair(h, _) => Rc::clone(h),
-        _ => Rc::new(List::Empty()),
+        ListE::Pair(h, _) => Rc::clone(h),
+        _ => empty_list(),
     }
 }
-pub fn cdr_rc(l: Rc<List>) -> Rc<List> {
+pub fn cdr(l: List) -> List {
     match &*l {
-        List::Pair(_, t) => Rc::clone(t),
-        _ => Rc::new(List::Empty()),
-    }
-}
-pub fn car(l: &List) -> &List {
-    match l {
-        List::Pair(h, _) => h,
-        _ => &List::Empty(),
-    }
-}
-pub fn cdr(l: &List) -> &List {
-    match l {
-        List::Pair(_, t) => t,
-        _ => &List::Empty(),
+        ListE::Pair(_, t) => Rc::clone(t),
+        _ => Rc::new(ListE::Empty()),
     }
 }
 pub fn empty_list() -> List {
-    List::Empty()
+    Rc::new(ListE::Empty())
 }
-pub fn empty_list_rc() -> Rc<List> {
-    Rc::new(empty_list())
-}
-pub fn length(l: &List) -> usize {
-    match l {
-        List::Empty() => 0,
+pub fn length(l: List) -> usize {
+    match *l {
+        ListE::Empty() => 0,
         _ => 1 + length(cdr(l)),
     }
 }
 #[macro_export]
-macro_rules! list_rc {
-    () => { empty_list_rc() };
+macro_rules! list {
+    () => { empty_list() };
     ($value:expr) => {
-        cons_rc($value, empty_list_rc())
+        cons($value, empty_list())
     };
     ($head:expr, $($tail:expr),*) => {
-        cons_rc(Rc::new($head), list_rc!($($tail),*))
+        cons(Rc::new($head), list!($($tail),*))
     };
 }
 #[macro_export]
-macro_rules! lit_list_rc {
-    () => { empty_list_rc() };
+macro_rules! lit_list {
+    () => { empty_list() };
     ($value:expr) => {
-        list_rc!(lit_rc($value))
+        list!(lit($value))
     };
     ($head:expr, $($tail:expr),*) => {
-        cons_rc(lit_rc($head), lit_list_rc!($($tail),*))
+        cons(lit($head), lit_list!($($tail),*))
     };
 }
 /// append appends list b to list a
-pub fn append(a: Rc<List>, b: Rc<List>) -> Rc<List> {
-    if is_empty_rc(Rc::clone(&a)) {
+pub fn append(a: List, b: List) -> List {
+    if is_empty(Rc::clone(&a)) {
         b
     } else {
-        cons_rc(car_rc(Rc::clone(&a)), append(cdr_rc(a), b))
+        cons(car(Rc::clone(&a)), append(cdr(a), b))
     }
 }
 /// reverses the given input list and returns a new list
-pub fn reverse(a: Rc<List>) -> Rc<List> {
-    if is_empty_rc(Rc::clone(&a)) {
+pub fn reverse(a: List) -> List {
+    if is_empty(Rc::clone(&a)) {
         a
     } else {
-        append(
-            reverse(cdr_rc(Rc::clone(&a))),
-            list_rc!(car_rc(Rc::clone(&a))),
-        )
+        append(reverse(cdr(Rc::clone(&a))), list!(car(Rc::clone(&a))))
     }
 }
 
@@ -149,14 +128,14 @@ fn main() {
 mod tests {
     use std::rc::Rc;
 
-    use crate::{append, car_rc, cdr_rc, length, lit, lit_rc, reverse};
+    use crate::{append, car, cdr, length, lit, reverse};
 
-    use super::{cons, cons_rc, empty_list, empty_list_rc};
+    use super::{cons, empty_list};
 
     #[test]
     fn empty_list_is_size_0() {
         let l = empty_list();
-        assert_eq!(0, length(&l));
+        assert_eq!(0, length(l));
     }
     #[test]
     fn empty_list_displays_correctly() {
@@ -166,7 +145,7 @@ mod tests {
     #[test]
     fn cons_1_to_empty_list() {
         let l = cons(lit("1"), empty_list());
-        assert_eq!(1, length(&l))
+        assert_eq!(1, length(l))
     }
     #[test]
     fn cons_1_displays_correctly() {
@@ -176,7 +155,7 @@ mod tests {
     #[test]
     fn cons_2_to_list_of_1_has_size_2() {
         let l = cons(lit("2"), cons(lit("1"), empty_list()));
-        assert_eq!(2, length(&l))
+        assert_eq!(2, length(l))
     }
     #[test]
     fn cons_2_displays_correctly() {
@@ -186,62 +165,62 @@ mod tests {
 
     #[test]
     fn list_marcro_works_for_empty() {
-        let l = lit_list_rc!();
+        let l = lit_list!();
         assert_eq!("()", format!("{l}"));
     }
 
     #[test]
     fn list_marcro_works_for_1() {
-        let l = lit_list_rc!("1");
+        let l = lit_list!("1");
         assert_eq!("('1')", format!("{l}"));
     }
 
     #[test]
     fn list_marcro_works_for_2() {
-        let l = lit_list_rc!("1", "2");
+        let l = lit_list!("1", "2");
         assert_eq!("('1' '2')", format!("{l}"));
     }
 
     #[test]
     fn append_1_to_empty() {
         let l = empty_list();
-        let n = lit_list_rc!("1");
-        let a = append(Rc::new(l), n);
+        let n = lit_list!("1");
+        let a = append(l, n);
         assert_eq!("('1')", format!("{a}"))
     }
 
     #[test]
     fn append_2_to_1() {
-        let l = lit_list_rc!("1");
-        let n = lit_list_rc!("2");
+        let l = lit_list!("1");
+        let n = lit_list!("2");
         let a = append(Rc::clone(&l), n);
         assert_eq!("('1' '2')", format!("{a}"));
         // the * is necessary as car_rc returns an Rc
         // car_rc is necessary as a itself is an Rc
-        assert_eq!(lit("1"), *car_rc(a));
+        assert_eq!(lit("1"), car(a));
     }
 
     #[test]
     fn real_worldy_list() {
-        let l = lit_list_rc!("this", "is", "a", "list");
+        let l = lit_list!("this", "is", "a", "list");
         assert_eq!("('this' 'is' 'a' 'list')", format!("{l}"))
     }
 
     #[test]
     fn car_returns_first_element() {
-        let l = lit_list_rc!("1");
-        let c = car_rc(l);
+        let l = lit_list!("1");
+        let c = car(l);
         assert_eq!("('1')", format!("{c}"))
     }
     #[test]
     fn cdr_return_rest_of_list() {
-        let l = lit_list_rc!("1", "2", "3");
-        let c = cdr_rc(l);
+        let l = lit_list!("1", "2", "3");
+        let c = cdr(l);
         assert_eq!("('2' '3')", format!("{c}"))
     }
     #[test]
     fn reverse_reverts_a_lists_order() {
-        let l = lit_list_rc!("1", "2", "3");
+        let l = lit_list!("1", "2", "3");
         let c = reverse(l);
         assert_eq!("('3' '2' '1')", format!("{c}"))
     }
