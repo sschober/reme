@@ -20,6 +20,8 @@ pub enum ListE {
     Pair(List, List),
 }
 /// List is an alias for a reference counted ListE reference
+/// We need this as otherwise the borrow check would give us grieve, when we would want to
+/// recursively descend into head and tail of lists.
 type List = Rc<ListE>;
 
 impl ListE {
@@ -45,20 +47,27 @@ impl fmt::Display for ListE {
         write!(f, ")")
     }
 }
-
+/// helper function to construct a literal
 pub fn lit(s: &str) -> List {
     Rc::new(ListE::Lit(s.to_owned()))
+}
+/// helper function to construct an empty list
+pub fn empty_list() -> List {
+    Rc::new(ListE::Empty())
 }
 /// cons prepends a new element to a list
 pub fn cons(a: List, b: List) -> List {
     Rc::new(ListE::Pair(a, b))
 }
-pub fn is_pair(l: ListE) -> bool {
-    matches!(l, ListE::Pair(_, _))
+/// check if given List is a pair or something else
+pub fn is_pair(l: List) -> bool {
+    matches!(*l, ListE::Pair(_, _))
 }
+/// check if given list is empty or something else
 pub fn is_empty(l: List) -> bool {
     matches!(*l, ListE::Empty())
 }
+/// return first (data) element of a list, or the empty list if l is something else than a pair
 pub fn car(l: List) -> List {
     // I find this construction, taking a ref of a dereferenced Rc especially ugly.
     // I only found this after googling around. If we do not use this contraption,
@@ -68,15 +77,14 @@ pub fn car(l: List) -> List {
         _ => empty_list(),
     }
 }
+/// return tail part of a list or empty if l is not a pair
 pub fn cdr(l: List) -> List {
     match &*l {
         ListE::Pair(_, t) => Rc::clone(t),
         _ => Rc::new(ListE::Empty()),
     }
 }
-pub fn empty_list() -> List {
-    Rc::new(ListE::Empty())
-}
+/// traverses down a list and computes its size
 pub fn length(l: List) -> usize {
     match *l {
         ListE::Empty() => 0,
@@ -103,7 +111,7 @@ macro_rules! lit_list {
         cons(lit($head), lit_list!($($tail),*))
     };
 }
-/// append appends list b to list a
+/// append list b to list a - returns b if a is empty
 pub fn append(a: List, b: List) -> List {
     if is_empty(Rc::clone(&a)) {
         b
@@ -120,8 +128,10 @@ pub fn reverse(a: List) -> List {
     }
 }
 
+/// dummy main that show cases how to construct and use a list
 fn main() {
-    println!("Hello, world!");
+    let g = lit_list!("Hello", "World", "!");
+    println!("{g}")
 }
 
 #[cfg(test)]
