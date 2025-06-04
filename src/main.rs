@@ -22,7 +22,9 @@ pub enum ListE {
 /// List is an alias for a reference counted ListE reference
 /// We need this as otherwise the borrow check would give us grieve, when we would want to
 /// recursively descend into head and tail of lists.
-type List = Rc<ListE>;
+type ListR = Rc<ListE>; // TODO rename all references below
+
+pub struct List(ListR);
 
 impl ListE {
     fn internal_fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -47,6 +49,8 @@ impl fmt::Display for ListE {
         write!(f, ")")
     }
 }
+
+impl List{
 /// helper function to construct a literal
 pub fn lit(s: &str) -> List {
     Rc::new(ListE::Lit(s.to_owned()))
@@ -90,6 +94,7 @@ pub fn length(l: List) -> usize {
         ListE::Empty() => 0,
         _ => 1 + length(cdr(l)),
     }
+}
 }
 #[macro_export]
 macro_rules! list {
