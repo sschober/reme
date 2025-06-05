@@ -17,12 +17,15 @@ use std::{fmt, rc::Rc};
 pub enum ListE {
     Empty(),
     Lit(String),
-    Pair(List, List),
+    Pair(ListR, ListR),
 }
 /// List is an alias for a reference counted ListE reference
 /// We need this as otherwise the borrow check would give us grieve, when we would want to
 /// recursively descend into head and tail of lists.
-type List = Rc<ListE>;
+type ListR = Rc<ListE>;
+
+#[derive(Debug)]
+pub struct List(ListR);
 
 impl ListE {
     fn internal_fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -40,6 +43,13 @@ impl ListE {
         }
     }
 }
+impl fmt::Display for List {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "(")?;
+        self.0.internal_fmt(f)?;
+        write!(f, ")")
+    }
+}
 impl fmt::Display for ListE {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "(")?;
@@ -47,28 +57,71 @@ impl fmt::Display for ListE {
         write!(f, ")")
     }
 }
+impl List {
+    /// helper function to construct a literal
+    pub fn lit(s: &str) -> Self {
+        List(Rc::new(ListE::Pair(
+            Rc::new(ListE::Lit(s.to_owned())),
+            Rc::new(ListE::Empty()),
+        )))
+    }
+    /// helper function to construct an empty list
+    pub fn empty() -> List {
+        List(Rc::new(ListE::Empty()))
+    }
+    /// cons prepends a new element to a list
+    pub fn cons(self, b: List) -> List {
+        if self.is_empty() {
+            b
+        } else {
+            // TODO i think this is the wrong way round
+            List(Rc::new(ListE::Pair(self.0, b.0)))
+        }
+    }
+    /// check if given list is empty or something else
+    pub fn is_empty(&self) -> bool {
+        matches!(*self.0, ListE::Empty())
+    }
+    /// return first (data) element of a list, or the empty list if l is something else than a pair
+    pub fn car(self) -> List {
+        // I find this construction, taking a ref of a dereferenced Rc especially ugly.
+        // I only found this after googling around. If we do not use this contraption,
+        // the compiler complains, that h is moved out of l.
+        match &*self.0 {
+            ListE::Pair(h, _) => List(Rc::clone(h)),
+            _ => List::empty(),
+        }
+    }
+    /// return tail part of a list or empty if l is not a pair
+    pub fn cdr(self) -> List {
+        match &*self.0 {
+            ListE::Pair(_, t) => List(Rc::clone(t)),
+            _ => List::empty(),
+        }
+    }
+}
 /// helper function to construct a literal
-pub fn lit(s: &str) -> List {
+pub fn lit(s: &str) -> ListR {
     Rc::new(ListE::Lit(s.to_owned()))
 }
 /// helper function to construct an empty list
-pub fn empty_list() -> List {
+pub fn empty_list() -> ListR {
     Rc::new(ListE::Empty())
 }
 /// cons prepends a new element to a list
-pub fn cons(a: List, b: List) -> List {
+pub fn cons(a: ListR, b: ListR) -> ListR {
     Rc::new(ListE::Pair(a, b))
 }
 /// check if given List is a pair or something else
-pub fn is_pair(l: List) -> bool {
+pub fn is_pair(l: ListR) -> bool {
     matches!(*l, ListE::Pair(_, _))
 }
 /// check if given list is empty or something else
-pub fn is_empty(l: List) -> bool {
+pub fn is_empty(l: ListR) -> bool {
     matches!(*l, ListE::Empty())
 }
 /// return first (data) element of a list, or the empty list if l is something else than a pair
-pub fn car(l: List) -> List {
+pub fn car(l: ListR) -> ListR {
     // I find this construction, taking a ref of a dereferenced Rc especially ugly.
     // I only found this after googling around. If we do not use this contraption,
     // the compiler complains, that h is moved out of l.
@@ -78,14 +131,14 @@ pub fn car(l: List) -> List {
     }
 }
 /// return tail part of a list or empty if l is not a pair
-pub fn cdr(l: List) -> List {
+pub fn cdr(l: ListR) -> ListR {
     match &*l {
         ListE::Pair(_, t) => Rc::clone(t),
         _ => Rc::new(ListE::Empty()),
     }
 }
 /// traverses down a list and computes its size
-pub fn length(l: List) -> usize {
+pub fn length(l: ListR) -> usize {
     match *l {
         ListE::Empty() => 0,
         _ => 1 + length(cdr(l)),
@@ -112,7 +165,7 @@ macro_rules! lit_list {
     };
 }
 /// append list b to list a - returns b if a is empty
-pub fn append(a: List, b: List) -> List {
+pub fn append(a: ListR, b: ListR) -> ListR {
     if is_empty(Rc::clone(&a)) {
         b
     } else {
@@ -120,7 +173,7 @@ pub fn append(a: List, b: List) -> List {
     }
 }
 /// reverses the given input list and returns a new list
-pub fn reverse(a: List) -> List {
+pub fn reverse(a: ListR) -> ListR {
     if is_empty(Rc::clone(&a)) {
         a
     } else {
@@ -131,7 +184,7 @@ pub fn reverse(a: List) -> List {
 mod tests {
     use std::rc::Rc;
 
-    use crate::{append, car, cdr, length, lit, reverse};
+    use crate::reme::{append, car, cdr, length, lit, reverse};
 
     use super::{cons, empty_list};
 
