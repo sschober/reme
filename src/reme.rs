@@ -20,13 +20,35 @@ pub enum ListE {
     Pair(ListR, ListR),
 }
 /// List is an alias for a reference counted ListE reference
-/// We need this as otherwise the borrow check would give us grieve, when we would want to
+/// We need this as otherwise the borrow checker would give us grieve, when we would want to
 /// recursively descend into head and tail of lists.
 type ListR = Rc<ListE>;
 
-#[derive(Debug)]
+/// List is a newtype wrapper around our ListR type alias
+/// This enables nice export/import properties
+#[derive(Debug, PartialEq)]
 pub struct List(ListR);
 
+#[macro_export]
+macro_rules! list {
+    () => { List::empty() };
+    ($value:expr) => {
+        $value.cons(List::empty())
+    };
+    ($head:expr, $($tail:expr),*) => {
+        cons(Rc::new($head), list!($($tail),*))
+    };
+}
+#[macro_export]
+macro_rules! lit_list {
+    () => { List::empty()};
+    ($value:expr) => {
+        list!(List::lit($value))
+    };
+    ($head:expr, $($tail:expr),*) => {
+        List::lit($head).cons(lit_list!($($tail),*))
+    };
+}
 impl ListE {
     fn internal_fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -99,124 +121,34 @@ impl List {
             self.car().cons(self.cdr().append(b))
         }
     }
-}
-/// helper function to construct a literal
-pub fn lit(s: &str) -> ListR {
-    Rc::new(ListE::Lit(s.to_owned()))
-}
-/// helper function to construct an empty list
-pub fn empty_list() -> ListR {
-    Rc::new(ListE::Empty())
-}
-/// cons prepends a new element to a list
-pub fn cons(a: ListR, b: ListR) -> ListR {
-    Rc::new(ListE::Pair(a, b))
-}
-/// check if given List is a pair or something else
-pub fn is_pair(l: ListR) -> bool {
-    matches!(*l, ListE::Pair(_, _))
-}
-/// check if given list is empty or something else
-pub fn is_empty(l: ListR) -> bool {
-    matches!(*l, ListE::Empty())
-}
-/// return first (data) element of a list, or the empty list if l is something else than a pair
-pub fn car(l: ListR) -> ListR {
-    // I find this construction, taking a ref of a dereferenced Rc especially ugly.
-    // I only found this after googling around. If we do not use this contraption,
-    // the compiler complains, that h is moved out of l.
-    match &*l {
-        ListE::Pair(h, _) => Rc::clone(h),
-        _ => empty_list(),
+    pub fn reverse(self) -> List {
+        if self.is_empty() {
+            self
+        } else {
+            self.cdr().reverse().append(list!(self.car()))
+        }
     }
-}
-/// return tail part of a list or empty if l is not a pair
-pub fn cdr(l: ListR) -> ListR {
-    match &*l {
-        ListE::Pair(_, t) => Rc::clone(t),
-        _ => Rc::new(ListE::Empty()),
-    }
-}
-/// traverses down a list and computes its size
-pub fn length(l: ListR) -> usize {
-    match *l {
-        ListE::Empty() => 0,
-        _ => 1 + length(cdr(l)),
-    }
-}
-#[macro_export]
-macro_rules! list {
-    () => { empty_list() };
-    ($value:expr) => {
-        cons($value, empty_list())
-    };
-    ($head:expr, $($tail:expr),*) => {
-        cons(Rc::new($head), list!($($tail),*))
-    };
-}
-#[macro_export]
-macro_rules! lit_list {
-    () => { empty_list() };
-    ($value:expr) => {
-        list!(lit($value))
-    };
-    ($head:expr, $($tail:expr),*) => {
-        cons(lit($head), lit_list!($($tail),*))
-    };
-}
-/// append list b to list a - returns b if a is empty
-pub fn append(a: ListR, b: ListR) -> ListR {
-    if is_empty(Rc::clone(&a)) {
-        b
-    } else {
-        cons(car(Rc::clone(&a)), append(cdr(a), b))
-    }
-}
-/// reverses the given input list and returns a new list
-pub fn reverse(a: ListR) -> ListR {
-    if is_empty(Rc::clone(&a)) {
-        a
-    } else {
-        append(reverse(cdr(Rc::clone(&a))), list!(car(Rc::clone(&a))))
+    pub fn length(&self) -> usize {
+        if self.is_empty() {
+            0
+        } else {
+            1 + self.cdr().length()
+        }
     }
 }
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
-
-    use crate::reme::{append, car, cdr, length, lit, reverse};
-
-    use super::{cons, empty_list};
+    use crate::List;
 
     #[test]
     fn empty_list_is_size_0() {
-        let l = empty_list();
-        assert_eq!(0, length(l));
+        let l = List::empty();
+        assert_eq!(0, l.length());
     }
     #[test]
     fn empty_list_displays_correctly() {
-        let l = empty_list();
+        let l = List::empty();
         assert_eq!("()", format!("{l}"));
-    }
-    #[test]
-    fn cons_1_to_empty_list() {
-        let l = cons(lit("1"), empty_list());
-        assert_eq!(1, length(l))
-    }
-    #[test]
-    fn cons_1_displays_correctly() {
-        let l = cons(lit("1"), empty_list());
-        assert_eq!("('1')", format!("{l}"));
-    }
-    #[test]
-    fn cons_2_to_list_of_1_has_size_2() {
-        let l = cons(lit("2"), cons(lit("1"), empty_list()));
-        assert_eq!(2, length(l))
-    }
-    #[test]
-    fn cons_2_displays_correctly() {
-        let l = cons(lit("2"), cons(lit("1"), empty_list()));
-        assert_eq!("('2' '1')", format!("{l}"));
     }
 
     #[test]
@@ -239,9 +171,9 @@ mod tests {
 
     #[test]
     fn append_1_to_empty() {
-        let l = empty_list();
+        let l = List::empty();
         let n = lit_list!("1");
-        let a = append(l, n);
+        let a = l.append(n);
         assert_eq!("('1')", format!("{a}"))
     }
 
@@ -249,9 +181,9 @@ mod tests {
     fn append_2_to_1() {
         let l = lit_list!("1");
         let n = lit_list!("2");
-        let a = append(Rc::clone(&l), n);
+        let a = l.append(n);
         assert_eq!("('1' '2')", format!("{a}"));
-        assert_eq!(lit("1"), car(a));
+        assert_eq!(List::lit("1"), a.car());
     }
 
     #[test]
@@ -263,19 +195,19 @@ mod tests {
     #[test]
     fn car_returns_first_element() {
         let l = lit_list!("1");
-        let c = car(l);
+        let c = l.car();
         assert_eq!("('1')", format!("{c}"))
     }
     #[test]
     fn cdr_return_rest_of_list() {
         let l = lit_list!("1", "2", "3");
-        let c = cdr(l);
+        let c = l.cdr();
         assert_eq!("('2' '3')", format!("{c}"))
     }
     #[test]
     fn reverse_reverts_a_lists_order() {
         let l = lit_list!("1", "2", "3");
-        let c = reverse(l);
+        let c = l.reverse();
         assert_eq!("('3' '2' '1')", format!("{c}"))
     }
 }
