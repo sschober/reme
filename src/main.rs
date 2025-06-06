@@ -8,11 +8,19 @@ fn main() {
     println!("{g}");
     let l = List::empty();
     println!("{l}");
-    let m = l.cons(List::lit("hallo"));
+    let m = List::lit("hallo").cons(l);
     println!("{m:?}");
     println!("{m}");
     let k = m.car();
     println!("{k:?}");
     println!("{k}");
-    let o = List(g);
+    let n = m.cdr();
+    println!("{n:?}");
+    println!("{n}");
+    let o = n.append(m);
+    println!("{o:?}");
+    println!("{o}");
+    let p = o.append(List::lit("Welt").cons(List::empty()));
+    println!("{p:?}");
+    println!("{p}");
 }

@@ -60,10 +60,7 @@ impl fmt::Display for ListE {
 impl List {
     /// helper function to construct a literal
     pub fn lit(s: &str) -> Self {
-        List(Rc::new(ListE::Pair(
-            Rc::new(ListE::Lit(s.to_owned())),
-            Rc::new(ListE::Empty()),
-        )))
+        List(Rc::new(ListE::Lit(s.to_owned())))
     }
     /// helper function to construct an empty list
     pub fn empty() -> List {
@@ -71,19 +68,14 @@ impl List {
     }
     /// cons prepends a new element to a list
     pub fn cons(self, b: List) -> List {
-        if self.is_empty() {
-            b
-        } else {
-            // TODO i think this is the wrong way round
-            List(Rc::new(ListE::Pair(self.0, b.0)))
-        }
+        List(Rc::new(ListE::Pair(self.0, b.0)))
     }
     /// check if given list is empty or something else
     pub fn is_empty(&self) -> bool {
         matches!(*self.0, ListE::Empty())
     }
     /// return first (data) element of a list, or the empty list if l is something else than a pair
-    pub fn car(self) -> List {
+    pub fn car(&self) -> List {
         // I find this construction, taking a ref of a dereferenced Rc especially ugly.
         // I only found this after googling around. If we do not use this contraption,
         // the compiler complains, that h is moved out of l.
@@ -93,10 +85,18 @@ impl List {
         }
     }
     /// return tail part of a list or empty if l is not a pair
-    pub fn cdr(self) -> List {
+    pub fn cdr(&self) -> List {
         match &*self.0 {
             ListE::Pair(_, t) => List(Rc::clone(t)),
             _ => List::empty(),
+        }
+    }
+    /// append list b to list a - returns b if a is empty
+    pub fn append(self, b: List) -> List {
+        if self.is_empty() {
+            b
+        } else {
+            self.car().cons(self.cdr().append(b))
         }
     }
 }
@@ -251,8 +251,6 @@ mod tests {
         let n = lit_list!("2");
         let a = append(Rc::clone(&l), n);
         assert_eq!("('1' '2')", format!("{a}"));
-        // the * is necessary as car_rc returns an Rc
-        // car_rc is necessary as a itself is an Rc
         assert_eq!(lit("1"), car(a));
     }
 
