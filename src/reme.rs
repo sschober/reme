@@ -5,7 +5,7 @@
 //!
 //! this little project was inspired and motivated by [mato](github.com/sschober/mato) - my
 //! markdown transformer framework. the syntax trees the parser produces are very strangely formed
-//! and hard to read. that's why i wanted to explorer a more academical approach.
+//! and hard to read. that's why i wanted to explore a more academical approach.
 //!
 use std::{fmt, rc::Rc};
 
@@ -113,7 +113,9 @@ impl List {
             _ => List::empty(),
         }
     }
-    /// append list b to list a - returns b if a is empty
+    /// append list `b` to list `a` - returns `b` if `a` is empty
+    /// no precaution is taken to keep the list well-formed! you can append a Lit (without and
+    /// Empty())
     pub fn append(self, b: List) -> List {
         if self.is_empty() {
             b
