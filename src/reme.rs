@@ -15,7 +15,8 @@ use std::{fmt, rc::Rc};
 /// power (Numbers)
 #[derive(Debug, Clone, PartialEq)]
 pub enum ListE {
-    Empty(),
+    Empty(), // could we avoid the need for an Empty variant, by wrapping the tail end of a list
+    // into an Option<>?
     Lit(String),
     Pair(ListR, ListR),
 }
@@ -67,9 +68,7 @@ impl ListE {
 }
 impl fmt::Display for List {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "(")?;
-        self.0.internal_fmt(f)?;
-        write!(f, ")")
+        write!(f, "{}", self.0)
     }
 }
 impl fmt::Display for ListE {
@@ -80,15 +79,15 @@ impl fmt::Display for ListE {
     }
 }
 impl List {
-    /// helper function to construct a literal
+    /// construct a literal encapsulated in a List `List(Rc(Lit))`
     pub fn lit(s: &str) -> Self {
         List(Rc::new(ListE::Lit(s.to_owned())))
     }
-    /// helper function to construct an empty list
+    /// construct an empty list `List(Rc(Empty))`
     pub fn empty() -> List {
         List(Rc::new(ListE::Empty()))
     }
-    /// cons prepends a new element to a list
+    /// cons _prepends_ a new element to a list
     pub fn cons(self, b: List) -> List {
         List(Rc::new(ListE::Pair(self.0, b.0)))
     }
@@ -96,7 +95,7 @@ impl List {
     pub fn is_empty(&self) -> bool {
         matches!(*self.0, ListE::Empty())
     }
-    /// return first (data) element of a list, or the empty list if l is something else than a pair
+    /// return first (data) element of a list, or the empty list if `self` is something else than a pair
     pub fn car(&self) -> List {
         // I find this construction, taking a ref of a dereferenced Rc especially ugly.
         // I only found this after googling around. If we do not use this contraption,
@@ -106,20 +105,22 @@ impl List {
             _ => List::empty(),
         }
     }
-    /// return tail part of a list or empty if l is not a pair
+    /// return tail part of a list or empty if `self` is not a pair
     pub fn cdr(&self) -> List {
         match &*self.0 {
             ListE::Pair(_, t) => List(Rc::clone(t)),
             _ => List::empty(),
         }
     }
-    /// append list `b` to list `a` - returns `b` if `a` is empty
-    /// no precaution is taken to keep the list well-formed! you can append a Lit (without and
-    /// Empty())
+    /// append list `b` to list `self` - returns `b` if `self` is empty
+    /// no precaution is taken to keep the list well-formed! you can append a `Lit` (without an
+    /// `Empty()`)
     pub fn append(self, b: List) -> List {
         if self.is_empty() {
             b
         } else {
+            // appending something to a list boils down to descending down the onion of pairs and
+            // appending the something at the position of then `Empty` marker.
             self.car().cons(self.cdr().append(b))
         }
     }
@@ -127,10 +128,14 @@ impl List {
         if self.is_empty() {
             self
         } else {
+            // this is rather complex: reverting a list is reverting its tail and appending the
+            // list build from the head of the list to that.
             self.cdr().reverse().append(list!(self.car()))
         }
     }
     pub fn length(&self) -> usize {
+        // this notion of length is inherently one dimensional - what happened if we would
+        // represent trees by allowing Pairs in the front position?
         if self.is_empty() {
             0
         } else {
